@@ -1,32 +1,82 @@
 (() => {
-  // Detect directory listing pages: look for <pre> or <table> containing file links
-  // Common patterns: Apache index, Nginx autoindex, lighttpd, etc.
-  const videoExtensions = /\.(mkv|mp4|avi|wmv|flv|mov|webm|m4v|ts|srt|sub|ass|ssa)$/i;
+  function isDirectoryListing() {
+    const title = document.title.toLowerCase();
+    if (/index of\s/i.test(title)) return true;
+    const h1 = document.querySelector("h1");
+    if (h1 && /index of\s/i.test(h1.textContent)) return true;
+    const pre = document.querySelector("pre");
+    if (pre) {
+      const links = pre.querySelectorAll("a");
+      if (links.length > 2 && [...links].some((a) => /\.\w{2,4}$/.test(a.getAttribute("href") || ""))) return true;
+    }
+    return false;
+  }
+
+  if (!isDirectoryListing()) return;
+
+  const videoExtensions = /\.(mkv|mp4|avi|wmv|flv|mov|webm|m4v|srt|sub|ass|ssa)$/i;
 
   function getFileLinks() {
     return [...document.querySelectorAll("a")].filter((a) => {
       const href = a.getAttribute("href");
       if (!href) return false;
-      // Skip parent directory and sorting links
       if (href === "../" || href === "/" || href.startsWith("?")) return false;
-      // Match video files or any file with extension in directory listings
       return videoExtensions.test(href);
     });
   }
 
   const fileLinks = getFileLinks();
-  if (fileLinks.length === 0) return; // Not a relevant page
+  if (fileLinks.length === 0) return;
 
   const pageKey = location.origin + location.pathname;
+  const decisionKey = "decision:" + pageKey;
 
-  // Load watched state from storage
-  chrome.storage.local.get([pageKey], (result) => {
-    const watched = result[pageKey] || {};
+  chrome.storage.local.get([pageKey, decisionKey], (result) => {
+    const decision = result[decisionKey];
 
+    // Already declined — do nothing
+    if (decision === "no") return;
+
+    // Already accepted or has watch data — inject directly
+    if (decision === "yes" || (result[pageKey] && Object.keys(result[pageKey]).length > 0)) {
+      injectTracker(result[pageKey] || {});
+      return;
+    }
+
+    // First visit — show prompt
+    showPrompt();
+  });
+
+  function showPrompt() {
+    const overlay = document.createElement("div");
+    overlay.className = "episode-tracker-overlay";
+    overlay.innerHTML = `
+      <div class="episode-tracker-prompt">
+        <p>This looks like an episode listing.<br>Enable watch tracker on this page?</p>
+        <div class="episode-tracker-prompt-buttons">
+          <button class="et-btn et-btn-yes">Yes</button>
+          <button class="et-btn et-btn-no">No</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    overlay.querySelector(".et-btn-yes").addEventListener("click", () => {
+      chrome.storage.local.set({ [decisionKey]: "yes" });
+      overlay.remove();
+      injectTracker({});
+    });
+
+    overlay.querySelector(".et-btn-no").addEventListener("click", () => {
+      chrome.storage.local.set({ [decisionKey]: "no" });
+      overlay.remove();
+    });
+  }
+
+  function injectTracker(watched) {
     let totalEpisodes = fileLinks.length;
     let watchedCount = 0;
 
-    // Create stats widget
     const stats = document.createElement("div");
     stats.className = "episode-tracker-stats";
     document.body.appendChild(stats);
@@ -48,7 +98,6 @@
       checkbox.className = "episode-checkbox";
       checkbox.checked = !!watched[href];
 
-      // Apply watched styling
       if (watched[href]) {
         link.parentElement.classList.add("episode-watched");
       }
@@ -68,5 +117,5 @@
     });
 
     updateStats();
-  });
+  }
 })();

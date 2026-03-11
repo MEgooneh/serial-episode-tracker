@@ -41,3 +41,63 @@
   border-radius: 3px;
   transition: width 0.3s;
 }
+
+.episode-tracker-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100000;
+  font-family: sans-serif;
+}
+
+.episode-tracker-prompt {
+  background: #fff;
+  padding: 24px 32px;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  text-align: center;
+  max-width: 360px;
+}
+
+.episode-tracker-prompt p {
+  margin: 0 0 16px;
+  font-size: 15px;
+  color: #222;
+  line-height: 1.5;
+}
+
+.episode-tracker-prompt-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.et-btn {
+  padding: 8px 28px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.et-btn-yes {
+  background: #4caf50;
+  color: #fff;
+}
+
+.et-btn-yes:hover {
+  background: #43a047;
+}
+
+.et-btn-no {
+  background: #e0e0e0;
+  color: #333;
+}
+
+.et-btn-no:hover {
+  background: #ccc;
+}
