@@ -1,9 +1,16 @@
 (() => {
   function isDirectoryListing() {
     const title = document.title.toLowerCase();
-    if (/index of\s/i.test(title)) return true;
+    if (/index of/i.test(title)) return true;
     const h1 = document.querySelector("h1");
-    if (h1 && /index of\s/i.test(h1.textContent)) return true;
+    if (h1 && /index of/i.test(h1.textContent)) return true;
+    // Table-based directory listings (custom styled servers)
+    const table = document.querySelector("table");
+    if (table) {
+      const links = table.querySelectorAll("a");
+      if (links.length > 2 && [...links].some((a) => /\.\w{2,4}$/.test(a.getAttribute("href") || ""))) return true;
+    }
+    // Pre-based directory listings (nginx/apache default)
     const pre = document.querySelector("pre");
     if (pre) {
       const links = pre.querySelectorAll("a");
