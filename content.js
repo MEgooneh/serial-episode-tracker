@@ -16,11 +16,9 @@
   }
 
   const allFileLinks = getAllFileLinks();
-  // Use video links if available, otherwise fall back to all file links
-  const fileLinks = getVideoLinks(allFileLinks);
-  const trackableLinks = fileLinks.length > 0 ? fileLinks : allFileLinks;
+  const trackableLinks = getVideoLinks(allFileLinks);
 
-  if (trackableLinks.length === 0) return;
+  if (trackableLinks.length < 2) return;
 
   const pageKey = location.origin + location.pathname;
   const decisionKey = "decision:" + pageKey;
