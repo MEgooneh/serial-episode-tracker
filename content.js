@@ -1,39 +1,26 @@
 (() => {
-  function isDirectoryListing() {
-    const title = document.title.toLowerCase();
-    if (/index of/i.test(title)) return true;
-    const h1 = document.querySelector("h1");
-    if (h1 && /index of/i.test(h1.textContent)) return true;
-    // Table-based directory listings (custom styled servers)
-    const table = document.querySelector("table");
-    if (table) {
-      const links = table.querySelectorAll("a");
-      if (links.length > 2 && [...links].some((a) => /\.\w{2,4}$/.test(a.getAttribute("href") || ""))) return true;
-    }
-    // Pre-based directory listings (nginx/apache default)
-    const pre = document.querySelector("pre");
-    if (pre) {
-      const links = pre.querySelectorAll("a");
-      if (links.length > 2 && [...links].some((a) => /\.\w{2,4}$/.test(a.getAttribute("href") || ""))) return true;
-    }
-    return false;
-  }
-
-  if (!isDirectoryListing()) return;
-
   const videoExtensions = /\.(mkv|mp4|avi|wmv|flv|mov|webm|m4v|srt|sub|ass|ssa)$/i;
 
-  function getFileLinks() {
+  function getAllFileLinks() {
     return [...document.querySelectorAll("a")].filter((a) => {
       const href = a.getAttribute("href");
       if (!href) return false;
       if (href === "../" || href === "/" || href.startsWith("?")) return false;
-      return videoExtensions.test(href);
+      // Match any link with a file extension
+      return /\.\w{2,4}$/.test(href);
     });
   }
 
-  const fileLinks = getFileLinks();
-  if (fileLinks.length === 0) return;
+  function getVideoLinks(allLinks) {
+    return allLinks.filter((a) => videoExtensions.test(a.getAttribute("href")));
+  }
+
+  const allFileLinks = getAllFileLinks();
+  // Use video links if available, otherwise fall back to all file links
+  const fileLinks = getVideoLinks(allFileLinks);
+  const trackableLinks = fileLinks.length > 0 ? fileLinks : allFileLinks;
+
+  if (trackableLinks.length === 0) return;
 
   const pageKey = location.origin + location.pathname;
   const decisionKey = "decision:" + pageKey;
@@ -59,6 +46,7 @@
     overlay.className = "episode-tracker-overlay";
     overlay.innerHTML = `
       <div class="episode-tracker-prompt">
+        <strong>Serial Episode Tracker</strong>
         <p>This looks like an episode listing.<br>Enable watch tracker on this page?</p>
         <div class="episode-tracker-prompt-buttons">
           <button class="et-btn et-btn-yes">Yes</button>
@@ -81,7 +69,7 @@
   }
 
   function injectTracker(watched) {
-    let totalEpisodes = fileLinks.length;
+    let totalEpisodes = trackableLinks.length;
     let watchedCount = 0;
 
     const stats = document.createElement("div");
@@ -91,14 +79,22 @@
     function updateStats() {
       watchedCount = Object.values(watched).filter(Boolean).length;
       stats.innerHTML = `
-        Watched: ${watchedCount} / ${totalEpisodes}
+        <span class="stats-text">Watched: ${watchedCount} / ${totalEpisodes}</span>
+        <button class="et-cancel-btn" title="Remove tracker from this page">&times;</button>
         <div class="progress-bar">
           <div class="progress-fill" style="width: ${(watchedCount / totalEpisodes) * 100}%"></div>
         </div>
       `;
+      stats.querySelector(".et-cancel-btn").addEventListener("click", () => {
+        chrome.storage.local.remove([pageKey]);
+        chrome.storage.local.set({ [decisionKey]: "no" });
+        stats.remove();
+        document.querySelectorAll(".episode-checkbox").forEach((cb) => cb.remove());
+        document.querySelectorAll(".episode-watched").forEach((el) => el.classList.remove("episode-watched"));
+      });
     }
 
-    fileLinks.forEach((link) => {
+    trackableLinks.forEach((link) => {
       const href = link.getAttribute("href");
       const checkbox = document.createElement("input");
       checkbox.type = "checkbox";

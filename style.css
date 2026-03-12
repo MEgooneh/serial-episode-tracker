@@ -24,10 +24,31 @@
   font-size: 14px;
   z-index: 99999;
   box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.episode-tracker-stats .stats-text {
+  flex: 1;
+}
+
+.et-cancel-btn {
+  background: none;
+  border: none;
+  color: #aaa;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0 0 0 8px;
+  line-height: 1;
+}
+
+.et-cancel-btn:hover {
+  color: #ff5252;
 }
 
 .episode-tracker-stats .progress-bar {
-  width: 100%;
+  flex-basis: 100%;
   height: 6px;
   background: #444;
   border-radius: 3px;
@@ -60,6 +81,13 @@
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
   text-align: center;
   max-width: 360px;
+}
+
+.episode-tracker-prompt strong {
+  display: block;
+  font-size: 16px;
+  color: #333;
+  margin-bottom: 8px;
 }
 
 .episode-tracker-prompt p {
