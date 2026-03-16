@@ -21,10 +21,10 @@
   if (trackableLinks.length < 2) return;
 
   const pageKey = location.origin + location.pathname;
-  const decisionKey = "decision:" + pageKey;
+  const domainDecisionKey = "decision:" + location.origin;
 
-  chrome.storage.local.get([pageKey, decisionKey], (result) => {
-    const decision = result[decisionKey];
+  chrome.storage.local.get([pageKey, domainDecisionKey], (result) => {
+    const decision = result[domainDecisionKey];
 
     // Already declined — do nothing
     if (decision === "no") return;
@@ -55,13 +55,13 @@
     document.body.appendChild(overlay);
 
     overlay.querySelector(".et-btn-yes").addEventListener("click", () => {
-      chrome.storage.local.set({ [decisionKey]: "yes" });
+      chrome.storage.local.set({ [domainDecisionKey]: "yes" });
       overlay.remove();
       injectTracker({});
     });
 
     overlay.querySelector(".et-btn-no").addEventListener("click", () => {
-      chrome.storage.local.set({ [decisionKey]: "no" });
+      chrome.storage.local.set({ [domainDecisionKey]: "no" });
       overlay.remove();
     });
   }
@@ -85,7 +85,7 @@
       `;
       stats.querySelector(".et-cancel-btn").addEventListener("click", () => {
         chrome.storage.local.remove([pageKey]);
-        chrome.storage.local.set({ [decisionKey]: "no" });
+        chrome.storage.local.set({ [domainDecisionKey]: "no" });
         stats.remove();
         document.querySelectorAll(".episode-checkbox").forEach((cb) => cb.remove());
         document.querySelectorAll(".episode-watched").forEach((el) => el.classList.remove("episode-watched"));
