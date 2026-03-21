@@ -1,4 +1,16 @@
 (() => {
+  // One-time migration: clear domain "no" decisions from old cancel button bug
+  chrome.storage.local.get("migrated_v2", (r) => {
+    if (r.migrated_v2) return;
+    chrome.storage.local.get(null, (all) => {
+      const staleKeys = Object.keys(all).filter(
+        (k) => k.startsWith("decision:") && all[k] === "no"
+      );
+      if (staleKeys.length) chrome.storage.local.remove(staleKeys);
+      chrome.storage.local.set({ migrated_v2: true });
+    });
+  });
+
   const videoExtensions = /\.(mkv|mp4|avi|wmv|flv|mov|webm|m4v|srt|sub|ass|ssa)$/i;
 
   function getAllFileLinks() {
@@ -21,12 +33,16 @@
   if (trackableLinks.length < 2) return;
 
   const pageKey = location.origin + location.pathname;
+  const pageSkipKey = "skip:" + pageKey;
   const domainDecisionKey = "decision:" + location.origin;
 
-  chrome.storage.local.get([pageKey, domainDecisionKey], (result) => {
+  chrome.storage.local.get([pageKey, pageSkipKey, domainDecisionKey], (result) => {
+    // This specific page was cancelled — do nothing
+    if (result[pageSkipKey]) return;
+
     const decision = result[domainDecisionKey];
 
-    // Already declined — do nothing
+    // Already declined for domain — do nothing
     if (decision === "no") return;
 
     // Already accepted or has watch data — inject directly
@@ -39,28 +55,40 @@
     showPrompt();
   });
 
+  function el(tag, attrs, ...children) {
+    const node = document.createElement(tag);
+    if (attrs) Object.entries(attrs).forEach(([k, v]) => {
+      if (k === "className") node.className = v;
+      else if (k === "title") node.title = v;
+      else node.setAttribute(k, v);
+    });
+    children.forEach((c) => {
+      if (typeof c === "string") node.appendChild(document.createTextNode(c));
+      else if (c) node.appendChild(c);
+    });
+    return node;
+  }
+
   function showPrompt() {
-    const overlay = document.createElement("div");
-    overlay.className = "episode-tracker-overlay";
-    overlay.innerHTML = `
-      <div class="episode-tracker-prompt">
-        <strong>Serial Episode Tracker</strong>
-        <p>This looks like an episode listing.<br>Enable watch tracker on this page?</p>
-        <div class="episode-tracker-prompt-buttons">
-          <button class="et-btn et-btn-yes">Yes</button>
-          <button class="et-btn et-btn-no">No</button>
-        </div>
-      </div>
-    `;
+    const yesBtn = el("button", { className: "et-btn et-btn-yes" }, "Yes");
+    const noBtn = el("button", { className: "et-btn et-btn-no" }, "No");
+
+    const overlay = el("div", { className: "episode-tracker-overlay" },
+      el("div", { className: "episode-tracker-prompt" },
+        el("strong", null, "Serial Episode Tracker"),
+        el("p", null, "This looks like an episode listing.", document.createElement("br"), "Enable watch tracker on this page?"),
+        el("div", { className: "episode-tracker-prompt-buttons" }, yesBtn, noBtn)
+      )
+    );
     document.body.appendChild(overlay);
 
-    overlay.querySelector(".et-btn-yes").addEventListener("click", () => {
+    yesBtn.addEventListener("click", () => {
       chrome.storage.local.set({ [domainDecisionKey]: "yes" });
       overlay.remove();
       injectTracker({});
     });
 
-    overlay.querySelector(".et-btn-no").addEventListener("click", () => {
+    noBtn.addEventListener("click", () => {
       chrome.storage.local.set({ [domainDecisionKey]: "no" });
       overlay.remove();
     });
@@ -76,19 +104,19 @@
 
     function updateStats() {
       watchedCount = Object.values(watched).filter(Boolean).length;
-      stats.innerHTML = `
-        <span class="stats-text">Watched: ${watchedCount} / ${totalEpisodes}</span>
-        <button class="et-cancel-btn" title="Remove tracker from this page">&times;</button>
-        <div class="progress-bar">
-          <div class="progress-fill" style="width: ${(watchedCount / totalEpisodes) * 100}%"></div>
-        </div>
-      `;
-      stats.querySelector(".et-cancel-btn").addEventListener("click", () => {
+      stats.textContent = "";
+      const cancelBtn = el("button", { className: "et-cancel-btn", title: "Remove tracker from this page" }, "\u00D7");
+      const progressFill = el("div", { className: "progress-fill" });
+      progressFill.style.width = (watchedCount / totalEpisodes) * 100 + "%";
+      stats.appendChild(el("span", { className: "stats-text" }, `Watched: ${watchedCount} / ${totalEpisodes}`));
+      stats.appendChild(cancelBtn);
+      stats.appendChild(el("div", { className: "progress-bar" }, progressFill));
+      cancelBtn.addEventListener("click", () => {
         chrome.storage.local.remove([pageKey]);
-        chrome.storage.local.set({ [domainDecisionKey]: "no" });
+        chrome.storage.local.set({ [pageSkipKey]: true });
         stats.remove();
         document.querySelectorAll(".episode-checkbox").forEach((cb) => cb.remove());
-        document.querySelectorAll(".episode-watched").forEach((el) => el.classList.remove("episode-watched"));
+        document.querySelectorAll(".episode-watched").forEach((e) => e.classList.remove("episode-watched"));
       });
     }
 
